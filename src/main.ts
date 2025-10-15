@@ -1,6 +1,10 @@
-import exampleIconUrl from "./noun-paperclip-7598668-00449F.png";
 import "./style.css";
 
+const canvas = document.createElement("canvas");
+canvas.width = 256;
+canvas.height = 256;
+
 document.body.innerHTML = `
-  <p>Example image asset: <img src="${exampleIconUrl}" class="icon" /></p>
+  <h1>doodlin' pad</h1>
 `;
+document.body.append(canvas);
