@@ -3,6 +3,7 @@ type Point = { x: number; y: number };
 type Line = Point[];
 
 const lines: Line[] = [];
+const redoLines: Line[] = [];
 let currentLine: Line = [];
 
 const canvas = document.createElement("canvas");
@@ -54,7 +55,8 @@ clearButton.innerHTML = "clear";
 document.body.append(clearButton);
 
 clearButton.addEventListener("click", () => {
-  if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  lines.splice(0, lines.length);
+  notify("drawing-changed");
 });
 
 function redraw() {
@@ -78,3 +80,27 @@ function redraw() {
 function notify(name: string) {
   canvas.dispatchEvent(new Event(name));
 }
+
+const undoButton = document.createElement("button");
+undoButton.innerHTML = "undo";
+document.body.append(undoButton);
+
+undoButton.addEventListener("click", () => {
+  if (lines.length > 0) {
+    const line = lines.pop();
+    if (line) redoLines.push(line);
+    notify("drawing-changed");
+  }
+});
+
+const redoButton = document.createElement("button");
+redoButton.innerHTML = "redo";
+document.body.append(redoButton);
+
+redoButton.addEventListener("click", () => {
+  if (redoLines.length > 0) {
+    const line = redoLines.pop();
+    if (line) lines.push(line);
+    notify("drawing-changed");
+  }
+});
