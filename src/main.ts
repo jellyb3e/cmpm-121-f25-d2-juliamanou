@@ -1,10 +1,38 @@
 import "./style.css";
 type Point = { x: number; y: number };
-type Line = Point[];
+interface Command {
+  display(ctx: CanvasRenderingContext2D): void;
+}
 
-const lines: Line[] = [];
-const redoLines: Line[] = [];
-let currentLine: Line = [];
+class LineCommand implements Command {
+  line: Point[];
+
+  constructor(first: Point) {
+    this.line = [first];
+  }
+
+  drag(point: Point) {
+    console.log("adding point to line");
+    this.line.push(point);
+  }
+
+  display(ctx: CanvasRenderingContext2D) {
+    console.log("Drawing line with points:", this.line);
+    if (this.line.length > 0) {
+      const [first, ...rest] = this.line;
+      ctx.beginPath();
+      if (first) ctx.moveTo(first.x, first.y);
+      for (const point of rest) {
+        ctx.lineTo(point.x, point.y);
+      }
+      ctx.stroke();
+    }
+  }
+}
+
+const commands: LineCommand[] = [];
+const redoCommands: LineCommand[] = [];
+let currentCommand: LineCommand | null = null;
 
 const canvas = document.createElement("canvas");
 canvas.width = 256;
@@ -25,18 +53,16 @@ canvas.addEventListener("mousedown", (e) => {
   cursor.x = e.offsetX;
   cursor.y = e.offsetY;
 
-  currentLine = [];
-  lines.push(currentLine);
-  currentLine.push({ x: cursor.x, y: cursor.y });
-
+  currentCommand = new LineCommand({ x: cursor.x, y: cursor.y });
+  commands.push(currentCommand);
   notify("drawing-changed");
 });
 
 canvas.addEventListener("mousemove", (e) => {
-  if (ctx && cursor.active) {
+  if (ctx && cursor.active && currentCommand) {
     cursor.x = e.offsetX;
     cursor.y = e.offsetY;
-    currentLine.push({ x: cursor.x, y: cursor.y });
+    currentCommand.drag({ x: cursor.x, y: cursor.y });
 
     notify("drawing-changed");
   }
@@ -44,7 +70,7 @@ canvas.addEventListener("mousemove", (e) => {
 
 canvas.addEventListener("mouseup", () => {
   cursor.active = false;
-  currentLine = [];
+  currentCommand = null;
 
   notify("drawing-changed");
 });
@@ -55,7 +81,7 @@ clearButton.innerHTML = "clear";
 document.body.append(clearButton);
 
 clearButton.addEventListener("click", () => {
-  lines.splice(0, lines.length);
+  commands.splice(0, commands.length);
   notify("drawing-changed");
 });
 
@@ -63,16 +89,8 @@ function redraw() {
   console.log("redrawing");
   if (ctx) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (const line of lines) {
-      if (line.length > 1 && line[0]) {
-        ctx.beginPath();
-        const { x, y } = line[0];
-        ctx.moveTo(x, y);
-        for (const { x, y } of line) {
-          ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-      }
+    for (const command of commands) {
+      command.display(ctx);
     }
   }
 }
@@ -86,9 +104,9 @@ undoButton.innerHTML = "undo";
 document.body.append(undoButton);
 
 undoButton.addEventListener("click", () => {
-  if (lines.length > 0) {
-    const line = lines.pop();
-    if (line) redoLines.push(line);
+  if (commands.length > 0) {
+    const line = commands.pop();
+    if (line) redoCommands.push(line);
     notify("drawing-changed");
   }
 });
@@ -98,9 +116,9 @@ redoButton.innerHTML = "redo";
 document.body.append(redoButton);
 
 redoButton.addEventListener("click", () => {
-  if (redoLines.length > 0) {
-    const line = redoLines.pop();
-    if (line) lines.push(line);
+  if (redoCommands.length > 0) {
+    const line = redoCommands.pop();
+    if (line) commands.push(line);
     notify("drawing-changed");
   }
 });
