@@ -1,7 +1,7 @@
 import "./style.css";
 type Point = { x: number; y: number };
 interface Command {
-  display(ctx: CanvasRenderingContext2D): void;
+  execute(): void;
 }
 
 class LineCommand implements Command {
@@ -14,12 +14,11 @@ class LineCommand implements Command {
   }
 
   drag(point: Point) {
-    console.log("adding point to line");
     this.line.push(point);
   }
 
-  display(ctx: CanvasRenderingContext2D) {
-    console.log("Drawing line with points:", this.line);
+  execute() {
+    if (!ctx) return;
     if (this.line.length > 0) {
       const [first, ...rest] = this.line;
       ctx.beginPath();
@@ -33,9 +32,25 @@ class LineCommand implements Command {
   }
 }
 
+class CursorCommand implements Command {
+  cursor: Point;
+
+  constructor(point: Point) {
+    this.cursor = point;
+  }
+  execute() {
+    if (!ctx) return;
+    ctx.beginPath();
+    ctx.arc(this.cursor.x, this.cursor.y, lineWidth / 2, 0, Math.PI * 2);
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.fill();
+  }
+}
+
 const commands: LineCommand[] = [];
 const redoCommands: LineCommand[] = [];
 let currentCommand: LineCommand | null = null;
+let cursorCommand: CursorCommand | null = null;
 
 const thin: number = 1;
 const thick: number = 3;
@@ -51,34 +66,40 @@ document.body.innerHTML = `
 document.body.append(canvas);
 
 const ctx = canvas.getContext("2d");
-const cursor = { active: false, x: 0, y: 0 };
 
-canvas.addEventListener("drawing-changed", redraw);
+const bus = new EventTarget();
+bus.addEventListener("drawing-changed", redraw);
+bus.addEventListener("tool-changed", redraw);
+
+canvas.addEventListener("mouseout", () => {
+  cursorCommand = null;
+  notify("tool-changed");
+});
+
+canvas.addEventListener("mouseenter", (e) => {
+  cursorCommand = new CursorCommand({ x: e.offsetX, y: e.offsetY });
+  notify("tool-changed");
+});
 
 canvas.addEventListener("mousedown", (e) => {
-  cursor.active = true;
-  cursor.x = e.offsetX;
-  cursor.y = e.offsetY;
-
-  currentCommand = new LineCommand({ x: cursor.x, y: cursor.y }, lineWidth);
+  currentCommand = new LineCommand({ x: e.offsetX, y: e.offsetY }, lineWidth);
   commands.push(currentCommand);
+  redoCommands.splice(0, redoCommands.length);
   notify("drawing-changed");
 });
 
 canvas.addEventListener("mousemove", (e) => {
-  if (ctx && cursor.active && currentCommand) {
-    cursor.x = e.offsetX;
-    cursor.y = e.offsetY;
-    currentCommand.drag({ x: cursor.x, y: cursor.y });
+  cursorCommand = new CursorCommand({ x: e.offsetX, y: e.offsetY });
+  notify("tool-changed");
 
+  if (e.buttons == 1) {
+    if (currentCommand) currentCommand.drag({ x: e.offsetX, y: e.offsetY });
     notify("drawing-changed");
   }
 });
 
 canvas.addEventListener("mouseup", () => {
-  cursor.active = false;
   currentCommand = null;
-
   notify("drawing-changed");
 });
 
@@ -94,16 +115,14 @@ clearButton.addEventListener("click", () => {
 
 function redraw() {
   console.log("redrawing");
-  if (ctx) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (const command of commands) {
-      command.display(ctx);
-    }
-  }
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  commands.forEach((cmd) => cmd.execute());
+  if (cursorCommand) cursorCommand.execute();
 }
 
 function notify(name: string) {
-  canvas.dispatchEvent(new Event(name));
+  bus.dispatchEvent(new Event(name));
 }
 
 const undoButton = document.createElement("button");
