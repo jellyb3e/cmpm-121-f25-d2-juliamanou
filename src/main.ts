@@ -6,9 +6,11 @@ interface Command {
 
 class LineCommand implements Command {
   line: Point[];
+  width: number;
 
-  constructor(first: Point) {
+  constructor(first: Point, width: number) {
     this.line = [first];
+    this.width = width;
   }
 
   drag(point: Point) {
@@ -25,6 +27,7 @@ class LineCommand implements Command {
       for (const point of rest) {
         ctx.lineTo(point.x, point.y);
       }
+      ctx.lineWidth = this.width;
       ctx.stroke();
     }
   }
@@ -33,6 +36,10 @@ class LineCommand implements Command {
 const commands: LineCommand[] = [];
 const redoCommands: LineCommand[] = [];
 let currentCommand: LineCommand | null = null;
+
+const thin: number = 1;
+const thick: number = 3;
+let lineWidth = thin;
 
 const canvas = document.createElement("canvas");
 canvas.width = 256;
@@ -53,7 +60,7 @@ canvas.addEventListener("mousedown", (e) => {
   cursor.x = e.offsetX;
   cursor.y = e.offsetY;
 
-  currentCommand = new LineCommand({ x: cursor.x, y: cursor.y });
+  currentCommand = new LineCommand({ x: cursor.x, y: cursor.y }, lineWidth);
   commands.push(currentCommand);
   notify("drawing-changed");
 });
@@ -121,4 +128,27 @@ redoButton.addEventListener("click", () => {
     if (line) commands.push(line);
     notify("drawing-changed");
   }
+});
+
+document.body.append(document.createElement("br"));
+const thickButton = document.createElement("button");
+const thinButton = document.createElement("button");
+thinButton.setAttribute("disabled", "true");
+
+thickButton.innerHTML = "THICK";
+thinButton.innerHTML = "thin";
+
+document.body.append(thinButton);
+document.body.append(thickButton);
+
+thickButton.addEventListener("click", () => {
+  lineWidth = thick;
+  thinButton.removeAttribute("disabled");
+  thickButton.setAttribute("disabled", "true");
+});
+
+thinButton.addEventListener("click", () => {
+  lineWidth = thin;
+  thickButton.removeAttribute("disabled");
+  thinButton.setAttribute("disabled", "true");
 });
