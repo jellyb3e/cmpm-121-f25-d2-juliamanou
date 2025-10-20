@@ -1,5 +1,14 @@
 import "./style.css";
+const thin: number = 1;
+const thick: number = 3;
+
 type Point = { x: number; y: number };
+type Tool = { kind: "marker"; width: number } | {
+  kind: "sticker";
+  emoji: string;
+};
+let tool: Tool = { kind: "marker", width: thin };
+
 interface Command {
   execute(): void;
 }
@@ -32,6 +41,33 @@ class LineCommand implements Command {
   }
 }
 
+class EmojiCommand implements Command {
+  point: Point;
+  text: string;
+  rotation: number = 0;
+
+  constructor(point: Point, text: string) {
+    this.point = point;
+    this.text = text;
+  }
+
+  drag(point: Point) {
+    const dx = point.x - this.point.x;
+    const dy = point.y - this.point.y;
+    this.rotation = Math.atan2(dy, dx);
+  }
+
+  execute() {
+    if (!ctx) return;
+    ctx.save();
+    ctx.translate(this.point.x, this.point.y);
+    ctx.rotate(this.rotation);
+    ctx.font = "32px monospace";
+    ctx.fillText(this.text, -20, 0);
+    ctx.restore();
+  }
+}
+
 class CursorCommand implements Command {
   cursor: Point;
 
@@ -40,21 +76,22 @@ class CursorCommand implements Command {
   }
   execute() {
     if (!ctx) return;
-    ctx.beginPath();
-    ctx.arc(this.cursor.x, this.cursor.y, lineWidth / 2, 0, Math.PI * 2);
-    ctx.fillStyle = ctx.strokeStyle;
-    ctx.fill();
+    if (tool.kind == "marker") {
+      ctx.beginPath();
+      ctx.arc(this.cursor.x, this.cursor.y, tool.width / 2, 0, Math.PI * 2);
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.fill();
+    } else if (tool.kind == "sticker") {
+      ctx.font = "32px monospace";
+      ctx.fillText(tool.emoji, this.cursor.x - 20, this.cursor.y);
+    }
   }
 }
 
-const commands: LineCommand[] = [];
-const redoCommands: LineCommand[] = [];
-let currentCommand: LineCommand | null = null;
+const commands: (LineCommand | EmojiCommand)[] = [];
+const redoCommands: (LineCommand | EmojiCommand)[] = [];
+let currentCommand: LineCommand | EmojiCommand | null = null;
 let cursorCommand: CursorCommand | null = null;
-
-const thin: number = 1;
-const thick: number = 3;
-let lineWidth = thin;
 
 const canvas = document.createElement("canvas");
 canvas.width = 256;
@@ -82,20 +119,31 @@ canvas.addEventListener("mouseenter", (e) => {
 });
 
 canvas.addEventListener("mousedown", (e) => {
-  currentCommand = new LineCommand({ x: e.offsetX, y: e.offsetY }, lineWidth);
-  commands.push(currentCommand);
+  if (tool.kind == "marker") {
+    currentCommand = new LineCommand(
+      { x: e.offsetX, y: e.offsetY },
+      tool.width,
+    );
+  } else if (tool.kind == "sticker") {
+    currentCommand = new EmojiCommand(
+      { x: e.offsetX, y: e.offsetY },
+      tool.emoji,
+    );
+  }
+  if (currentCommand) commands.push(currentCommand);
   redoCommands.splice(0, redoCommands.length);
   notify("drawing-changed");
 });
 
 canvas.addEventListener("mousemove", (e) => {
-  cursorCommand = new CursorCommand({ x: e.offsetX, y: e.offsetY });
-  notify("tool-changed");
-
   if (e.buttons == 1) {
     if (currentCommand) currentCommand.drag({ x: e.offsetX, y: e.offsetY });
     notify("drawing-changed");
+    cursorCommand = null;
+  } else {
+    cursorCommand = new CursorCommand({ x: e.offsetX, y: e.offsetY });
   }
+  notify("tool-changed");
 });
 
 canvas.addEventListener("mouseup", () => {
@@ -161,13 +209,42 @@ document.body.append(thinButton);
 document.body.append(thickButton);
 
 thickButton.addEventListener("click", () => {
-  lineWidth = thick;
+  tool = { kind: "marker", width: thick };
   thinButton.removeAttribute("disabled");
   thickButton.setAttribute("disabled", "true");
 });
 
 thinButton.addEventListener("click", () => {
-  lineWidth = thin;
+  tool = { kind: "marker", width: thin };
   thickButton.removeAttribute("disabled");
   thinButton.setAttribute("disabled", "true");
+});
+
+document.body.append(document.createElement("br"));
+const mooseEmojiButton = document.createElement("button");
+const cheeseEmojiButton = document.createElement("button");
+const chitmuntEmojiButton = document.createElement("button");
+thinButton.setAttribute("disabled", "true");
+
+mooseEmojiButton.innerHTML = "🫎";
+cheeseEmojiButton.innerHTML = "🧀";
+chitmuntEmojiButton.innerHTML = "🐿️";
+
+document.body.append(mooseEmojiButton);
+document.body.append(cheeseEmojiButton);
+document.body.append(chitmuntEmojiButton);
+
+mooseEmojiButton.addEventListener("click", () => {
+  tool = { kind: "sticker", emoji: "🫎" };
+  notify("tool-changed");
+});
+
+cheeseEmojiButton.addEventListener("click", () => {
+  tool = { kind: "sticker", emoji: "🧀" };
+  notify("tool-changed");
+});
+
+chitmuntEmojiButton.addEventListener("click", () => {
+  tool = { kind: "sticker", emoji: "🐿️" };
+  notify("tool-changed");
 });
