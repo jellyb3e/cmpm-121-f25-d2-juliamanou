@@ -91,7 +91,7 @@ canvas.width = 256;
 canvas.height = 256;
 document.body.innerHTML = ` <h1>doodlin' pad</h1> `;
 document.body.append(canvas);
-const ctx = canvas.getContext("2d");
+let ctx = canvas.getContext("2d");
 const bus = new EventTarget();
 bus.addEventListener("drawing-changed", redraw);
 bus.addEventListener("tool-changed", redraw);
@@ -195,6 +195,29 @@ addEmojiButton.addEventListener("click", () => {
     createEmojiClickEvent(text, name);
     numCustoms++;
   }
+});
+const exportButton = createAndAddButton("export image");
+exportButton.addEventListener("click", () => {
+  const exportSize = 1024;
+  const scale = exportSize / canvas.width;
+  const exportCanvas = document.createElement("canvas");
+  exportCanvas.width = exportSize;
+  exportCanvas.height = exportSize;
+  const exportCtx = exportCanvas.getContext("2d");
+  if (!exportCtx) return;
+  exportCtx.save();
+  exportCtx.fillStyle = "white";
+  exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+  exportCtx.scale(scale, scale);
+  const prevCtx = ctx;
+  ctx = exportCtx;
+  commands.forEach((cmd) => cmd.execute());
+  ctx = prevCtx;
+  exportCtx.restore();
+  const anchor = document.createElement("a");
+  anchor.href = exportCanvas.toDataURL("image/png");
+  anchor.download = "sketchpad.png";
+  anchor.click();
 });
 function createEmojiButtons() {
   emojiList.forEach((emoji) => {
