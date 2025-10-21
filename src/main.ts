@@ -1,6 +1,6 @@
 import "./style.css";
-const thin: number = 1;
-const thick: number = 3;
+const thin: number = 3;
+const thick: number = 6;
 let numCustoms: number = 0;
 type Point = { x: number; y: number };
 type Tool = { kind: "marker"; width: number } | {
@@ -55,7 +55,7 @@ class EmojiCommand implements Command {
     ctx.save();
     ctx.translate(this.point.x, this.point.y);
     ctx.rotate(this.rotation);
-    ctx.font = "32px monospace";
+    ctx.font = "40px monospace";
     ctx.fillText(this.text, -20, 0);
     ctx.restore();
   }
@@ -73,7 +73,7 @@ class CursorCommand implements Command {
       ctx.fillStyle = ctx.strokeStyle;
       ctx.fill();
     } else if (tool.kind == "sticker") {
-      ctx.font = "32px monospace";
+      ctx.font = "40px monospace";
       ctx.fillText(tool.emoji, this.cursor.x - 20, this.cursor.y);
     }
   }
@@ -169,33 +169,6 @@ redoButton.addEventListener("click", () => {
     notify("drawing-changed");
   }
 });
-document.body.append(document.createElement("br"));
-const thickButton = createAndAddButton("THICK");
-const thinButton = createAndAddButton("thin");
-thinButton.setAttribute("disabled", "true");
-thickButton.addEventListener("click", () => {
-  tool = { kind: "marker", width: thick };
-  thinButton.removeAttribute("disabled");
-  thickButton.setAttribute("disabled", "true");
-});
-thinButton.addEventListener("click", () => {
-  tool = { kind: "marker", width: thin };
-  thickButton.removeAttribute("disabled");
-  thinButton.setAttribute("disabled", "true");
-});
-document.body.append(document.createElement("br"));
-createEmojiButtons();
-createAllEmojiClickEvents();
-const addEmojiButton = createAndAddButton("+");
-addEmojiButton.addEventListener("click", () => {
-  const text = prompt("Custom sticker text", "🧽");
-  if (text) {
-    const name = "custom" + numCustoms;
-    createAndAddButton(text, name);
-    createEmojiClickEvent(text, name);
-    numCustoms++;
-  }
-});
 const exportButton = createAndAddButton("export image");
 exportButton.addEventListener("click", () => {
   const exportSize = 1024;
@@ -219,6 +192,45 @@ exportButton.addEventListener("click", () => {
   anchor.download = "sketchpad.png";
   anchor.click();
 });
+document.body.append(document.createElement("br"));
+
+const markerLabel = document.createElement("p");
+markerLabel.innerHTML = "marker:";
+document.body.append(markerLabel);
+
+const thickButton = createAndAddButton("THICK");
+const thinButton = createAndAddButton("thin");
+thinButton.setAttribute("disabled", "true");
+thickButton.addEventListener("click", () => {
+  tool = { kind: "marker", width: thick };
+  thinButton.removeAttribute("disabled");
+  thickButton.setAttribute("disabled", "true");
+});
+thinButton.addEventListener("click", () => {
+  tool = { kind: "marker", width: thin };
+  thickButton.removeAttribute("disabled");
+  thinButton.setAttribute("disabled", "true");
+});
+document.body.append(document.createElement("br"));
+
+const stickerLabel = document.createElement("p");
+stickerLabel.innerHTML = "sticker:";
+document.body.append(stickerLabel);
+
+const addEmojiButton = createAndAddButton("+");
+addEmojiButton.addEventListener("click", () => {
+  const text = prompt("Custom sticker text", "🧽");
+  if (text) {
+    const name = "custom" + numCustoms;
+    createAndAddButton(text, name);
+    createEmojiClickEvent(text, name);
+    numCustoms++;
+  }
+});
+
+createEmojiButtons();
+createAllEmojiClickEvents();
+
 function createEmojiButtons() {
   emojiList.forEach((emoji) => {
     createAndAddButton(emoji.text, emoji.name);
