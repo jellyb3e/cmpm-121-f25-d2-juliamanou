@@ -2,12 +2,15 @@ import "./style.css";
 const thin: number = 3;
 const thick: number = 6;
 let numCustoms: number = 0;
+
 type Point = { x: number; y: number };
-type Tool = { kind: "marker"; width: number } | {
-  kind: "sticker";
-  emoji: string;
-};
+type Tool =
+  | { kind: "marker"; width: number }
+  | { kind: "sticker"; emoji: string };
+
 let tool: Tool = { kind: "marker", width: thin };
+const markerColor = { r: 0, g: 0, b: 0 };
+
 interface Emoji {
   name: string;
   text: string;
@@ -15,16 +18,22 @@ interface Emoji {
 interface Command {
   execute(): void;
 }
+
 class LineCommand implements Command {
   line: Point[];
   width: number;
-  constructor(first: Point, width: number) {
+  color: string;
+
+  constructor(first: Point, width: number, color: string) {
     this.line = [first];
     this.width = width;
+    this.color = color;
   }
+
   drag(point: Point) {
     this.line.push(point);
   }
+
   execute() {
     if (!ctx) return;
     if (this.line.length > 0) {
@@ -33,10 +42,12 @@ class LineCommand implements Command {
       if (first) ctx.moveTo(first.x, first.y);
       for (const point of rest) ctx.lineTo(point.x, point.y);
       ctx.lineWidth = this.width;
+      ctx.strokeStyle = this.color;
       ctx.stroke();
     }
   }
 }
+
 class EmojiCommand implements Command {
   point: Point;
   text: string;
@@ -60,6 +71,7 @@ class EmojiCommand implements Command {
     ctx.restore();
   }
 }
+
 class CursorCommand implements Command {
   cursor: Point;
   constructor(point: Point) {
@@ -70,7 +82,8 @@ class CursorCommand implements Command {
     if (tool.kind == "marker") {
       ctx.beginPath();
       ctx.arc(this.cursor.x, this.cursor.y, tool.width / 2, 0, Math.PI * 2);
-      ctx.fillStyle = ctx.strokeStyle;
+      ctx.fillStyle =
+        `rgb(${markerColor.r}, ${markerColor.g}, ${markerColor.b})`;
       ctx.fill();
     } else if (tool.kind == "sticker") {
       ctx.font = "40px monospace";
@@ -78,23 +91,29 @@ class CursorCommand implements Command {
     }
   }
 }
+
 const commands: (LineCommand | EmojiCommand)[] = [];
 const redoCommands: (LineCommand | EmojiCommand)[] = [];
 let currentCommand: LineCommand | EmojiCommand | null = null;
 let cursorCommand: CursorCommand | null = null;
-const emojiList: Emoji[] = [{ name: "moose", text: "🫎" }, {
-  name: "cheese",
-  text: "🧀",
-}, { name: "chitmunt", text: "🐿️" }];
+
+const emojiList: Emoji[] = [
+  { name: "moose", text: "🫎" },
+  { name: "cheese", text: "🧀" },
+  { name: "chitmunt", text: "🐿️" },
+];
+
 const canvas = document.createElement("canvas");
 canvas.width = 256;
 canvas.height = 256;
-document.body.innerHTML = ` <h1>doodlin' pad</h1> `;
+document.body.innerHTML = `<h1>doodlin' pad</h1>`;
 document.body.append(canvas);
 let ctx = canvas.getContext("2d");
+
 const bus = new EventTarget();
 bus.addEventListener("drawing-changed", redraw);
 bus.addEventListener("tool-changed", redraw);
+
 canvas.addEventListener("mouseout", () => {
   cursorCommand = null;
   notify("tool-changed");
@@ -105,9 +124,11 @@ canvas.addEventListener("mouseenter", (e) => {
 });
 canvas.addEventListener("mousedown", (e) => {
   if (tool.kind == "marker") {
+    const color = `rgb(${markerColor.r}, ${markerColor.g}, ${markerColor.b})`;
     currentCommand = new LineCommand(
       { x: e.offsetX, y: e.offsetY },
       tool.width,
+      color,
     );
   } else if (tool.kind == "sticker") {
     currentCommand = new EmojiCommand(
@@ -131,6 +152,7 @@ canvas.addEventListener("mouseup", () => {
   currentCommand = null;
   notify("drawing-changed");
 });
+
 document.body.append(document.createElement("br"));
 const clearButton = document.createElement("button");
 clearButton.innerHTML = "clear";
@@ -139,19 +161,19 @@ clearButton.addEventListener("click", () => {
   commands.splice(0, commands.length);
   notify("drawing-changed");
 });
+
 function redraw() {
-  console.log("redrawing");
   if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   commands.forEach((cmd) => cmd.execute());
   if (cursorCommand) cursorCommand.execute();
 }
+
 function notify(name: string) {
   bus.dispatchEvent(new Event(name));
 }
-const undoButton = document.createElement("button");
-undoButton.innerHTML = "undo";
-document.body.append(undoButton);
+
+const undoButton = createAndAddButton("undo");
 undoButton.addEventListener("click", () => {
   if (commands.length > 0) {
     const line = commands.pop();
@@ -159,9 +181,8 @@ undoButton.addEventListener("click", () => {
     notify("drawing-changed");
   }
 });
-const redoButton = document.createElement("button");
-redoButton.innerHTML = "redo";
-document.body.append(redoButton);
+
+const redoButton = createAndAddButton("redo");
 redoButton.addEventListener("click", () => {
   if (redoCommands.length > 0) {
     const line = redoCommands.pop();
@@ -169,6 +190,7 @@ redoButton.addEventListener("click", () => {
     notify("drawing-changed");
   }
 });
+
 const exportButton = createAndAddButton("export image");
 exportButton.addEventListener("click", () => {
   const exportSize = 1024;
@@ -192,10 +214,11 @@ exportButton.addEventListener("click", () => {
   anchor.download = "sketchpad.png";
   anchor.click();
 });
+
 document.body.append(document.createElement("br"));
 
 const markerLabel = document.createElement("p");
-markerLabel.innerHTML = "marker:";
+markerLabel.innerHTML = "marker thickness:";
 document.body.append(markerLabel);
 
 const thickButton = createAndAddButton("THICK");
@@ -211,8 +234,45 @@ thinButton.addEventListener("click", () => {
   thickButton.removeAttribute("disabled");
   thinButton.setAttribute("disabled", "true");
 });
+
 document.body.append(document.createElement("br"));
 
+const colorLabel = document.createElement("p");
+colorLabel.innerHTML = "marker color:";
+document.body.append(colorLabel);
+
+const colorPreview = document.createElement("div");
+colorPreview.id = "color-preview";
+colorPreview.style.backgroundColor =
+  `rgb(${markerColor.r}, ${markerColor.g}, ${markerColor.b})`;
+document.body.append(colorPreview);
+document.body.append(document.createElement("br"));
+
+function createColorSlider(primaryColor: "r" | "g" | "b") {
+  const label = document.createElement("label");
+  label.innerHTML = primaryColor;
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.min = "0";
+  slider.max = "255";
+  slider.value = "0";
+
+  document.body.append(label);
+  document.body.append(slider);
+  document.body.append(document.createElement("br"));
+
+  slider.addEventListener("input", () => {
+    markerColor[primaryColor] = Number(slider.value);
+    colorPreview.style.backgroundColor =
+      `rgb(${markerColor.r}, ${markerColor.g}, ${markerColor.b})`;
+  });
+}
+
+createColorSlider("r");
+createColorSlider("g");
+createColorSlider("b");
+
+document.body.append(document.createElement("br"));
 const stickerLabel = document.createElement("p");
 stickerLabel.innerHTML = "sticker:";
 document.body.append(stickerLabel);
@@ -236,6 +296,7 @@ function createEmojiButtons() {
     createAndAddButton(emoji.text, emoji.name);
   });
 }
+
 function createEmojiClickEvent(text: string, name: string) {
   const emojiButton = document.getElementById(name);
   if (emojiButton) {
@@ -245,11 +306,13 @@ function createEmojiClickEvent(text: string, name: string) {
     });
   }
 }
+
 function createAllEmojiClickEvents() {
   emojiList.forEach((emoji) => {
     createEmojiClickEvent(emoji.text, emoji.name);
   });
 }
+
 function createAndAddButton(text: string, id: string = "") {
   const button = document.createElement("button");
   button.innerHTML = text;
