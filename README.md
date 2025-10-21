@@ -1,3 +1,9 @@
 # CMPM 121 D2 Project
 
-This is the starting point for your CMPM 121 D2 project. Students should make sure to remove _this_ content from their README.md file and replace it with their own project documentation.
+behold the doodlin' pad
+
+here you can draw on a canvas, choose marker thickness and color, and place stickers.
+you can also clear, undo, and redo changes, and export when you're ready.
+if that wasn't enough, you can also create your own custom stickers !
+
+now get in there and start doodlin'
